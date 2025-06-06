@@ -1,0 +1,6 @@
+@ParcelAuthAPI_HostAddress = http://localhost:5180
+
+GET {{ParcelAuthAPI_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
