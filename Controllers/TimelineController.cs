@@ -1,8 +1,9 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using ParcelAuthAPI.Data;
-using System.Threading.Tasks;
 using System.Linq;
+using System.Threading.Tasks;
 
 namespace ParcelAuthAPI.Controllers
 {
@@ -21,7 +22,7 @@ namespace ParcelAuthAPI.Controllers
         [HttpGet("{trackingId}")]
         public async Task<IActionResult> GetTimeline(string trackingId)
         {
-            var parcel = await _context.Parcels.FindAsync(trackingId);
+            var parcel = await _context.Parcels.FirstOrDefaultAsync(p => p.TrackingId == trackingId);
             if (parcel == null) return NotFound();
 
             var statusLogs = _context.ParcelStatusLogs

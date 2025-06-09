@@ -24,7 +24,7 @@ namespace ParcelAuthAPI.Services
                 Port = int.Parse(_config["Email:Port"]),
                 EnableSsl = true,
                 Credentials = new NetworkCredential(
-                    _config["Email:legendaryam8@gmail.com"],
+                    _config["Email:Username"],
                     _config["Email:Password"]
                 )
             };

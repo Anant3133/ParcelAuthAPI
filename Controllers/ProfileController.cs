@@ -1,9 +1,10 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using System.Security.Claims;
 using ParcelAuthAPI.Data;
-using System.Threading.Tasks;
+using ParcelAuthAPI.DTOs; 
 using System.Linq;
+using System.Security.Claims;
+using System.Threading.Tasks;
 
 namespace ParcelAuthAPI.Controllers
 {
@@ -22,13 +23,15 @@ namespace ParcelAuthAPI.Controllers
         [HttpGet("userinfo")]
         public async Task<IActionResult> GetUserInfo()
         {
-            string userId = User.FindFirst("http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier")?.Value;
+            string userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
             var user = await _context.Users.FindAsync(userId);
             if (user == null) return NotFound();
 
             var parcels = _context.Parcels
                 .Where(p => p.SenderId == userId)
-                .Select(p => new {
+                .Select(p => new
+                {
                     p.TrackingId,
                     p.RecipientName,
                     p.DeliveryAddress,
@@ -40,9 +43,29 @@ namespace ParcelAuthAPI.Controllers
             {
                 user.Id,
                 user.Email,
+                user.Name,
                 user.Role,
                 Parcels = parcels
             });
+        }
+
+        [HttpPut]
+        public async Task<IActionResult> UpdateProfile([FromBody] UserUpdateDto updatedUser)
+        {
+            string userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+            if (userId != updatedUser.Id)
+                return Forbid();
+
+            var user = await _context.Users.FindAsync(userId);
+            if (user == null) return NotFound();
+
+            user.Name = updatedUser.Name;
+
+            _context.Users.Update(user);
+            await _context.SaveChangesAsync();
+
+            return Ok(new { message = "Profile updated successfully" });
         }
     }
 }

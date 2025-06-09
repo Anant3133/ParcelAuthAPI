@@ -5,6 +5,9 @@ using Microsoft.EntityFrameworkCore;
 using ParcelAuthAPI.Models;
 using ParcelAuthAPI.Data;
 using ParcelAuthAPI.Services;
+using System.Linq;
+using System.Threading.Tasks;
+using System;
 
 namespace ParcelAuthAPI.Controllers
 {
@@ -102,6 +105,34 @@ namespace ParcelAuthAPI.Controllers
                 tampered = isTampered,
                 tamperNote = isTampered ? tamperReason : null
             });
+        }
+
+        // New endpoint to fetch parcels handled by current handler
+        [HttpGet("handled")]
+        public IActionResult GetHandledParcels()
+        {
+            var handlerId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+
+            // Get distinct parcel IDs this handler has handled
+            var handledParcelIds = _context.Handovers
+                .Where(h => h.HandlerId == handlerId)
+                .Select(h => h.ParcelTrackingId)
+                .Distinct()
+                .ToList();
+
+            // Fetch parcels details for those IDs
+            var parcels = _context.Parcels
+                .Where(p => handledParcelIds.Contains(p.TrackingId))
+                .Select(p => new
+                {
+                    p.TrackingId,
+                    p.RecipientName,
+                    p.DeliveryAddress,
+                    p.Status
+                })
+                .ToList();
+
+            return Ok(parcels);
         }
     }
 }
