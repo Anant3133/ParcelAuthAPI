@@ -5,6 +5,8 @@ using ParcelAuthAPI.Models;
 using ParcelAuthAPI.Services;
 using ParcelAuthAPI.Data;
 using System.Linq;
+using System.Threading.Tasks;
+using System;
 
 namespace ParcelAuthAPI.Controllers
 {
@@ -30,10 +32,6 @@ namespace ParcelAuthAPI.Controllers
             var senderId = User.FindFirstValue(ClaimTypes.NameIdentifier);
             var role = User.FindFirst(ClaimTypes.Role)?.Value;
 
-            Console.WriteLine("=== CreateParcel ===");
-            Console.WriteLine("Sender ID: " + senderId);
-            Console.WriteLine("User Role: " + role);
-
             if (role != "Sender")
                 return Forbid("User is not authorized as Sender");
 
@@ -42,7 +40,9 @@ namespace ParcelAuthAPI.Controllers
                 SenderId = senderId,
                 RecipientName = parcelDto.RecipientName,
                 DeliveryAddress = parcelDto.DeliveryAddress,
-                TrackingId = Guid.NewGuid().ToString()
+                TrackingId = Guid.NewGuid().ToString(),
+                Status = "Received",  // Default initial status
+                CreatedAt = DateTime.UtcNow
             };
 
             _context.Parcels.Add(parcel);
@@ -70,10 +70,6 @@ namespace ParcelAuthAPI.Controllers
             var senderId = User.FindFirstValue(ClaimTypes.NameIdentifier);
             var role = User.FindFirst(ClaimTypes.Role)?.Value;
 
-            Console.WriteLine("=== GetMyParcels ===");
-            Console.WriteLine("Sender ID: " + senderId);
-            Console.WriteLine("User Role: " + role);
-
             if (role != "Sender")
                 return Forbid("User is not authorized as Sender");
 
@@ -84,7 +80,9 @@ namespace ParcelAuthAPI.Controllers
                     p.TrackingId,
                     p.RecipientName,
                     p.DeliveryAddress,
-                    p.Status
+                    p.Status,
+                    p.CurrentLocation,
+                    p.CreatedAt
                 })
                 .ToList();
 
@@ -92,22 +90,18 @@ namespace ParcelAuthAPI.Controllers
         }
 
         [HttpGet("handled")]
+        [Authorize(Roles = "Handler")]
         public IActionResult GetHandledParcels()
         {
             var handlerId = User.FindFirstValue(ClaimTypes.NameIdentifier);
             var role = User.FindFirst(ClaimTypes.Role)?.Value;
 
-            Console.WriteLine("=== GetHandledParcels ===");
-            Console.WriteLine("Handler ID: " + handlerId);
-            Console.WriteLine("User Role: " + role);
-
             if (role != "Handler")
                 return Forbid("User is not authorized as Handler");
 
-            // Fix: Replace 'TrackingId' with 'ParcelTrackingId' as per the Handover class definition
             var handledTrackingIds = _context.Handovers
                 .Where(h => h.HandlerId == handlerId)
-                .Select(h => h.ParcelTrackingId) // Correct property name
+                .Select(h => h.ParcelTrackingId)
                 .Distinct()
                 .ToList();
 
@@ -118,7 +112,8 @@ namespace ParcelAuthAPI.Controllers
                     p.TrackingId,
                     p.RecipientName,
                     p.DeliveryAddress,
-                    p.Status
+                    p.Status,
+                    p.CurrentLocation
                 })
                 .ToList();
 

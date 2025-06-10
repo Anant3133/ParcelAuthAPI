@@ -12,6 +12,7 @@ namespace ParcelAuthAPI.Models
         public string ReceiverEmail { get; set; } = string.Empty;
         public string DeliveryAddress { get; set; } = string.Empty;
         public string Status { get; set; } = string.Empty;
+        public string CurrentLocation { get; set; } = string.Empty;
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     }
 }

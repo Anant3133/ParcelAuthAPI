@@ -3,65 +3,97 @@ using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
 using ParcelAuthAPI.Models;
 using ParcelAuthAPI.Data;
+using ParcelAuthAPI.Services;
 using System.Threading.Tasks;
 using System;
+using System.Collections.Generic;
+using Microsoft.EntityFrameworkCore;
 
 namespace ParcelAuthAPI.Controllers
 {
-    [Authorize(Roles = "Admin,Handler,Sender")]
+    [Authorize(Roles = "Admin")]
     [ApiController]
     [Route("api/[controller]")]
     public class StatusController : ControllerBase
     {
         private readonly AppDbContext _context;
+        private readonly INotificationService _notificationService;
 
-        public StatusController(AppDbContext context)
+        private readonly HashSet<string> _validStatuses = new()
+        {
+            "Received", "Packed", "Shipped", "Out for Delivery", "Delivered"
+        };
+
+        public StatusController(AppDbContext context, INotificationService notificationService)
         {
             _context = context;
-        }
-
-        public class UpdateStatusRequest
-        {
-            public string ParcelTrackingId { get; set; } = string.Empty;
-            public string Status { get; set; } = string.Empty;
+            _notificationService = notificationService;
         }
 
         [HttpPost("update")]
-        public async Task<IActionResult> UpdateStatus([FromBody] UpdateStatusRequest request)
+        public async Task<IActionResult> UpdateStatus([FromBody] ParcelStatusDTO dto)
         {
-            string userId = User.FindFirst("http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier")?.Value;
-            string role = User.FindFirst("http://schemas.microsoft.com/ws/2008/06/identity/claims/role")?.Value;
+            if (dto == null)
+                return BadRequest("Request body cannot be empty.");
 
-            Console.WriteLine("User ID: " + userId);
-            Console.WriteLine("User Role: " + role);
+            if (string.IsNullOrWhiteSpace(dto.TrackingId))
+                return BadRequest("TrackingId is required.");
 
-            if (string.IsNullOrWhiteSpace(request.ParcelTrackingId) || string.IsNullOrWhiteSpace(request.Status))
-            {
-                return BadRequest("ParcelTrackingId and Status are required.");
-            }
+            if (!_validStatuses.Contains(dto.Status))
+                return BadRequest($"Invalid status. Must be one of: {string.Join(", ", _validStatuses)}.");
 
-            var parcel = await _context.Parcels.FindAsync(request.ParcelTrackingId);
+            var parcel = await _context.Parcels.FirstOrDefaultAsync(p => p.TrackingId == dto.TrackingId);
             if (parcel == null)
-            {
-                return NotFound($"Parcel with TrackingId '{request.ParcelTrackingId}' not found.");
-            }
+                return NotFound($"Parcel with TrackingId '{dto.TrackingId}' not found.");
 
-            
-            parcel.Status = request.Status;
-            _context.Parcels.Update(parcel);
+            // Update parcel status
+            parcel.Status = dto.Status;
+            parcel.CurrentLocation = parcel.CurrentLocation; // no location update here (optional)
 
-            
+            // Log status change
             var statusLog = new ParcelStatusLog
             {
-                ParcelTrackingId = request.ParcelTrackingId,
-                Status = request.Status,
+                ParcelTrackingId = dto.TrackingId,
+                Status = dto.Status,
                 Timestamp = DateTime.UtcNow
             };
+            _context.ParcelStatusLogs.Add(statusLog);
 
-            await _context.ParcelStatusLogs.AddAsync(statusLog);
+            // Notify sender if delivered
+            if (dto.Status == "Delivered")
+            {
+                var sender = await _context.Users.FindAsync(parcel.SenderId);
+                if (sender != null && !string.IsNullOrEmpty(sender.Email))
+                {
+                    await _notificationService.SendEmailAsync(
+                        sender.Email,
+                        "Parcel Delivered",
+                        $"Your parcel {dto.TrackingId} has been successfully delivered."
+                    );
+                }
+            }
+
             await _context.SaveChangesAsync();
 
-            return Ok(new { message = $"Status updated to '{request.Status}' for parcel '{request.ParcelTrackingId}'." });
+            return Ok(new { message = $"Parcel {dto.TrackingId} status updated to '{dto.Status}'." });
+        }
+
+        [HttpGet("all")]
+        public async Task<IActionResult> GetAllParcels()
+        {
+            var parcels = await _context.Parcels
+                .Select(p => new
+                {
+                    p.TrackingId,
+                    p.RecipientName,
+                    p.DeliveryAddress,
+                    p.Status,
+                    p.CurrentLocation,
+                    p.CreatedAt
+                })
+                .ToListAsync();
+
+            return Ok(parcels);
         }
     }
 }

@@ -8,6 +8,7 @@ using ParcelAuthAPI.Services;
 using System.Linq;
 using System.Threading.Tasks;
 using System;
+using System.Collections.Generic;
 
 namespace ParcelAuthAPI.Controllers
 {
@@ -19,6 +20,11 @@ namespace ParcelAuthAPI.Controllers
         private readonly AppDbContext _context;
         private readonly INotificationService _notificationService;
 
+        private readonly HashSet<string> _validStatuses = new()
+        {
+            "Received", "Packed", "Shipped", "Out for Delivery", "Delivered"
+        };
+
         public HandoverController(AppDbContext context, INotificationService notificationService)
         {
             _context = context;
@@ -28,27 +34,28 @@ namespace ParcelAuthAPI.Controllers
         [HttpPost("log")]
         public async Task<IActionResult> LogHandover([FromBody] HandoverDto dto)
         {
-            if (dto.Action != "Received" && dto.Action != "HandedOver")
-                return BadRequest("Invalid action. Must be 'Received' or 'HandedOver'.");
+            if (dto == null)
+                return BadRequest("Request body cannot be empty.");
+
+            if (string.IsNullOrWhiteSpace(dto.ParcelTrackingId))
+                return BadRequest("ParcelTrackingId is required.");
+
+            if (!_validStatuses.Contains(dto.Action))
+                return BadRequest($"Invalid status action. Must be one of: {string.Join(", ", _validStatuses)}.");
+
+            if (string.IsNullOrWhiteSpace(dto.Location))
+                return BadRequest("Location is required.");
 
             var handlerId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (string.IsNullOrEmpty(handlerId))
+                return Unauthorized("Handler identity not found.");
 
-            var lastAction = await _context.Handovers
-                .Where(h => h.ParcelTrackingId == dto.ParcelTrackingId)
-                .OrderByDescending(h => h.Timestamp)
-                .FirstOrDefaultAsync();
+            var parcel = await _context.Parcels.FirstOrDefaultAsync(p => p.TrackingId == dto.ParcelTrackingId);
+            if (parcel == null)
+                return NotFound($"Parcel with TrackingId '{dto.ParcelTrackingId}' not found.");
 
-            bool isTampered = false;
-            string tamperReason = "";
-
-            if (lastAction != null)
-            {
-                if (lastAction.Action == dto.Action)
-                {
-                    isTampered = true;
-                    tamperReason = $"Repeated '{dto.Action}' without alternating.";
-                }
-            }
+            // Check valid status progression (optional enhancement)
+            // (You can implement strict state machine here if desired)
 
             var handover = new Handover
             {
@@ -58,41 +65,31 @@ namespace ParcelAuthAPI.Controllers
                 Location = dto.Location,
                 Timestamp = DateTime.UtcNow
             };
-
             _context.Handovers.Add(handover);
 
-            if (isTampered)
-            {
-                var alert = new TamperAlert
-                {
-                    ParcelTrackingId = dto.ParcelTrackingId,
-                    HandlerId = handlerId,
-                    Message = tamperReason,
-                    Timestamp = DateTime.UtcNow
-                };
-                _context.TamperAlerts.Add(alert);
+            // Update parcel status and location
+            parcel.Status = dto.Action;
+            parcel.CurrentLocation = dto.Location;
 
-                var admins = await _context.Users.Where(u => u.Role == "Admin").ToListAsync();
-                foreach (var admin in admins)
-                {
-                    await _notificationService.SendEmailAsync(
-                        admin.Email,
-                        "Tampering Detected",
-                        $"Tamper alert for parcel {dto.ParcelTrackingId}: {tamperReason}"
-                    );
-                }
-            }
-
-            if (dto.Action == "HandedOver")
+            // Log status change
+            var statusLog = new ParcelStatusLog
             {
-                var parcel = await _context.Parcels.FirstOrDefaultAsync(p => p.TrackingId == dto.ParcelTrackingId);
-                var sender = await _context.Users.FindAsync(parcel?.SenderId);
-                if (sender != null)
+                ParcelTrackingId = dto.ParcelTrackingId,
+                Status = dto.Action,
+                Timestamp = DateTime.UtcNow
+            };
+            _context.ParcelStatusLogs.Add(statusLog);
+
+            // Notify sender if delivered
+            if (dto.Action == "Delivered")
+            {
+                var sender = await _context.Users.FindAsync(parcel.SenderId);
+                if (sender != null && !string.IsNullOrEmpty(sender.Email))
                 {
                     await _notificationService.SendEmailAsync(
                         sender.Email,
                         "Parcel Delivered",
-                        $"Your parcel {dto.ParcelTrackingId} has been marked as delivered."
+                        $"Your parcel {dto.ParcelTrackingId} has been successfully delivered."
                     );
                 }
             }
@@ -101,36 +98,34 @@ namespace ParcelAuthAPI.Controllers
 
             return Ok(new
             {
-                message = "Handover logged successfully",
-                tampered = isTampered,
-                tamperNote = isTampered ? tamperReason : null
+                message = $"Status '{dto.Action}' logged successfully for parcel {dto.ParcelTrackingId}."
             });
         }
 
-        // New endpoint to fetch parcels handled by current handler
         [HttpGet("handled")]
-        public IActionResult GetHandledParcels()
+        public async Task<IActionResult> GetHandledParcels()
         {
             var handlerId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (string.IsNullOrEmpty(handlerId))
+                return Unauthorized("Handler identity not found.");
 
-            // Get distinct parcel IDs this handler has handled
-            var handledParcelIds = _context.Handovers
+            var handledParcelIds = await _context.Handovers
                 .Where(h => h.HandlerId == handlerId)
                 .Select(h => h.ParcelTrackingId)
                 .Distinct()
-                .ToList();
+                .ToListAsync();
 
-            // Fetch parcels details for those IDs
-            var parcels = _context.Parcels
+            var parcels = await _context.Parcels
                 .Where(p => handledParcelIds.Contains(p.TrackingId))
                 .Select(p => new
                 {
                     p.TrackingId,
                     p.RecipientName,
                     p.DeliveryAddress,
-                    p.Status
+                    p.Status,
+                    p.CurrentLocation
                 })
-                .ToList();
+                .ToListAsync();
 
             return Ok(parcels);
         }
