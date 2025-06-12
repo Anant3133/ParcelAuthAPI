@@ -1,17 +1,19 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using System.Security.Claims;
-using ParcelAuthAPI.Models;
+using Microsoft.EntityFrameworkCore;
 using ParcelAuthAPI.Data;
+using ParcelAuthAPI.DTOs;
+using ParcelAuthAPI.Models;
 using ParcelAuthAPI.Services;
-using System.Threading.Tasks;
 using System;
 using System.Collections.Generic;
-using Microsoft.EntityFrameworkCore;
+using System.Linq;
+using System.Security.Claims;
+using System.Threading.Tasks;
 
 namespace ParcelAuthAPI.Controllers
 {
-    [Authorize(Roles = "Admin")]
+    [Authorize(Roles = "Sender,Handler,Admin")]
     [ApiController]
     [Route("api/[controller]")]
     public class StatusController : ControllerBase
@@ -46,11 +48,10 @@ namespace ParcelAuthAPI.Controllers
             if (parcel == null)
                 return NotFound($"Parcel with TrackingId '{dto.TrackingId}' not found.");
 
-            // Update parcel status
+            
             parcel.Status = dto.Status;
-            parcel.CurrentLocation = parcel.CurrentLocation; // no location update here (optional)
 
-            // Log status change
+        
             var statusLog = new ParcelStatusLog
             {
                 ParcelTrackingId = dto.TrackingId,
@@ -59,7 +60,7 @@ namespace ParcelAuthAPI.Controllers
             };
             _context.ParcelStatusLogs.Add(statusLog);
 
-            // Notify sender if delivered
+            
             if (dto.Status == "Delivered")
             {
                 var sender = await _context.Users.FindAsync(parcel.SenderId);
@@ -94,6 +95,29 @@ namespace ParcelAuthAPI.Controllers
                 .ToListAsync();
 
             return Ok(parcels);
+        }
+
+        [AllowAnonymous] 
+        [HttpGet("{TrackingId}")]
+        public async Task<IActionResult> GetStatusLogs(string TrackingId)
+        {
+            var logs = await _context.ParcelStatusLogs
+                .Where(log => log.ParcelTrackingId == TrackingId)
+                .OrderBy(log => log.Timestamp)
+                .Select(log => new ParcelStatusDTO
+                {
+                    TrackingId = log.ParcelTrackingId,
+                    Status = log.Status,
+                    Timestamp = log.Timestamp
+                })
+                .ToListAsync();
+
+            if (!logs.Any())
+            {
+                return NotFound($"No status logs found for tracking ID: {TrackingId}");
+            }
+
+            return Ok(logs);
         }
     }
 }

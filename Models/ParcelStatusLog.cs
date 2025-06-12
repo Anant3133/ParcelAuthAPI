@@ -7,7 +7,7 @@ namespace ParcelAuthAPI.Models
         [Key]
         public string Id { get; set; } = Guid.NewGuid().ToString();
         public string ParcelTrackingId { get; set; } = string.Empty;
-        public string Status { get; set; } = "Packed"; 
+        public string Status { get; set; } = "Received"; 
         public DateTime Timestamp { get; set; } = DateTime.UtcNow;
     }
 }
