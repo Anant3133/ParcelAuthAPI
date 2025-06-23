@@ -14,5 +14,8 @@ namespace ParcelAuthAPI.Models
         public string Status { get; set; } = "Received";
         public string CurrentLocation { get; set; } = string.Empty;
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+        public string SenderAddress { get; set; } = string.Empty;
+        public string ParcelCategory { get; set; } = string.Empty;  // e.g., "Fragile", "Heavy", "Standard"
+        public decimal Weight { get; set; }
     }
 }

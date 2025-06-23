@@ -41,6 +41,9 @@ namespace ParcelAuthAPI.Controllers
                 RecipientName = parcelDto.RecipientName,
                 DeliveryAddress = parcelDto.DeliveryAddress,
                 TrackingId = Guid.NewGuid().ToString(),
+                SenderAddress = parcelDto.SenderAddress,      // new
+                ParcelCategory = parcelDto.ParcelCategory,    // new
+                Weight = parcelDto.Weight,                      // new
                 Status = "Received",  // Default initial status
                 CreatedAt = DateTime.UtcNow
             };
@@ -81,6 +84,9 @@ namespace ParcelAuthAPI.Controllers
                     p.RecipientName,
                     p.DeliveryAddress,
                     p.Status,
+                    p.SenderAddress,       // new
+                    p.ParcelCategory,      // new
+                    p.Weight,              // new
                     p.CurrentLocation,
                     p.CreatedAt
                 })
@@ -112,6 +118,9 @@ namespace ParcelAuthAPI.Controllers
                     p.TrackingId,
                     p.RecipientName,
                     p.DeliveryAddress,
+                    p.SenderAddress,       // new
+                    p.ParcelCategory,      // new
+                    p.Weight,              // new
                     p.Status,
                     p.CurrentLocation
                 })
