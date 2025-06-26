@@ -35,6 +35,45 @@ public class AuthService
         return GenerateJwtToken(user);
     }
 
+    private List<string> GetPermissionsForRole(string role)
+    {
+        switch (role.ToLower())
+        {
+            case "admin":
+                return new List<string>
+            {
+                "view_users",
+                "view_parcels",
+                "view_current_status",
+                "raise_alert",
+                "view_tamper_alerts",
+                "view_timeline"
+            };
+            case "handler":
+                return new List<string>
+            {
+                "update_status",
+                "raise_alert",
+                "view_parcels",
+                "view_current_status",
+                "view_timeline"
+            };
+            case "sender":
+                return new List<string>
+            {
+                "create_parcel",
+                "view_current_status",
+                "view_parcels",
+                "view_timeline"
+            };
+            default:
+                return new List<string>();
+        }
+    }
+
+
+
+
     public string? Login(LoginModel model)
     {
         var user = _context.Users.FirstOrDefault(u => u.Email == model.Email);
@@ -46,12 +85,18 @@ public class AuthService
 
     private string GenerateJwtToken(User user)
     {
-        var claims = new[]
-{
-    new Claim("http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier", user.Id),
-    new Claim("http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name", user.Email),
-    new Claim("http://schemas.microsoft.com/ws/2008/06/identity/claims/role", user.Role)
-};
+        Console.WriteLine(" GENERATING JWT FOR: " + user.Email);
+        var claims = new List<Claim>
+    {
+        new Claim("http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier", user.Id),
+        new Claim("http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name", user.Email),
+        new Claim("http://schemas.microsoft.com/ws/2008/06/identity/claims/role", user.Role)
+    };
+
+      
+        var permissions = GetPermissionsForRole(user.Role);
+        
+        claims.Add(new Claim("permissions", System.Text.Json.JsonSerializer.Serialize(permissions)));
 
 
         var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_config["Jwt:Key"]!));
@@ -68,3 +113,4 @@ public class AuthService
         return new JwtSecurityTokenHandler().WriteToken(token);
     }
 }
+

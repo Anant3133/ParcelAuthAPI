@@ -45,12 +45,14 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowReactApp", policy =>
     {
-        policy.WithOrigins("http://localhost:3000")
-              .AllowAnyHeader()
-              .AllowAnyMethod()
-              .AllowCredentials();
+        policy
+          .WithOrigins("http://localhost:3000", "http://192.168.48.5:3000")  // add all frontend origins here
+          .AllowAnyHeader()
+          .AllowAnyMethod()
+          .AllowCredentials();  // if you send cookies or auth headers
     });
 });
+
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
@@ -86,6 +88,7 @@ app.UseSwagger();
 app.UseSwaggerUI();
 
 app.UseCors("AllowReactApp");
+
 
 app.UseAuthentication();
 app.UseAuthorization();

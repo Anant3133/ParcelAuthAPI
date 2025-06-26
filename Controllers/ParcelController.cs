@@ -51,7 +51,13 @@ namespace ParcelAuthAPI.Controllers
             _context.Parcels.Add(parcel);
             await _context.SaveChangesAsync();
 
-            var qrCodeBytes = _qrService.Generate(parcel.TrackingId);
+            var qrPayload = System.Text.Json.JsonSerializer.Serialize(new
+            {
+                trackingId = parcel.TrackingId,
+                deliveryLocation = parcel.DeliveryAddress 
+            });
+
+            var qrCodeBytes = _qrService.Generate(qrPayload);
             var qrBase64 = Convert.ToBase64String(qrCodeBytes);
 
             var sender = await _context.Users.FindAsync(senderId);
