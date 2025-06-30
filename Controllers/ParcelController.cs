@@ -101,6 +101,24 @@ namespace ParcelAuthAPI.Controllers
             return Ok(parcels);
         }
 
+        [HttpGet("qrcode/{trackingId}")]
+        public IActionResult GetParcelQrCode(string trackingId)
+        {
+            var parcel = _context.Parcels.FirstOrDefault(p => p.TrackingId == trackingId);
+            if (parcel == null) return NotFound("Parcel not found");
+
+            var qrPayload = System.Text.Json.JsonSerializer.Serialize(new
+            {
+                trackingId = parcel.TrackingId,
+                deliveryLocation = parcel.DeliveryAddress
+            });
+
+            var qrCodeBytes = _qrService.Generate(qrPayload);
+            var qrBase64 = Convert.ToBase64String(qrCodeBytes);
+
+            return Ok(new { qrCode = $"data:image/png;base64,{qrBase64}" });
+        }
+
         [HttpGet("handled")]
         [Authorize(Roles = "Handler")]
         public IActionResult GetHandledParcels()

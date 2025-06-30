@@ -155,6 +155,29 @@ public async Task<IActionResult> LogHandover([FromBody] HandoverDto dto)
     });
 }
 
+        [HttpGet("parcels")]
+        [Authorize(Roles = "Admin , Handler")]
+        public async Task<IActionResult> GetParcels()
+        {
+            var parcels = await _context.Parcels
+                .Select(p => new {
+                    p.TrackingId,
+                    p.RecipientName,
+                    p.DeliveryAddress,
+                    p.Status,
+                    p.CurrentLocation,
+                    p.CreatedAt,
+                    p.Weight,
+                    SenderEmail = _context.Users
+                        .Where(u => u.Id == p.SenderId)
+                        .Select(u => u.Email)
+                        .FirstOrDefault()
+                })
+                .ToListAsync();
+
+            return Ok(parcels);
+        }
+
         [HttpGet("handled")]
         public async Task<IActionResult> GetHandledParcels()
         {
