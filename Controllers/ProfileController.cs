@@ -49,6 +49,38 @@ namespace ParcelAuthAPI.Controllers
             });
         }
 
+        [HttpPost("upload-profile-picture")]
+        public async Task<IActionResult> UploadProfilePicture([FromBody] UploadImageDTO dto)
+        {
+            string userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (userId == null) return Unauthorized();
+
+            var user = await _context.Users.FindAsync(userId);
+            if (user == null) return NotFound();
+
+            user.ProfilePictureUrl = dto.ImageUrl;
+            _context.Users.Update(user);
+            await _context.SaveChangesAsync();
+
+            return Ok(new { message = "Profile picture updated successfully" });
+        }
+
+        [HttpPost("upload-banner-image")]
+        public async Task<IActionResult> UploadBannerImage([FromBody] UploadImageDTO dto)
+        {
+            string userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (userId == null) return Unauthorized();
+
+            var user = await _context.Users.FindAsync(userId);
+            if (user == null) return NotFound();
+
+            user.BannerImageUrl = dto.ImageUrl;
+            _context.Users.Update(user);
+            await _context.SaveChangesAsync();
+
+            return Ok(new { message = "Banner image updated successfully" });
+        }
+
         [HttpPut]
         public async Task<IActionResult> UpdateProfile([FromBody] UserUpdateDto updatedUser)
         {

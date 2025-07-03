@@ -7,4 +7,6 @@ public class User
     public string PasswordHash { get; set; } = string.Empty;
     public string Role { get; set; } = "Sender";
     public string Name { get; set; } = string.Empty;
+    public string? ProfilePictureUrl { get; set; }
+    public string? BannerImageUrl { get; set; }
 }
