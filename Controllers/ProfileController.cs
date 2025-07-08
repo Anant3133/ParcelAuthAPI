@@ -45,6 +45,13 @@ namespace ParcelAuthAPI.Controllers
                 user.Email,
                 user.Name,
                 user.Role,
+                user.Birthday,
+                user.Mobile,
+                user.Location,
+                user.Languages,
+                user.About,
+                user.ProfilePictureUrl,
+                user.BannerImageUrl,
                 Parcels = parcels
             });
         }
@@ -93,7 +100,11 @@ namespace ParcelAuthAPI.Controllers
             if (user == null) return NotFound();
 
             user.Name = updatedUser.Name;
-
+            user.Birthday = updatedUser.Birthday;
+            user.Mobile = updatedUser.Mobile;
+            user.Location = updatedUser.Location;
+            user.Languages = updatedUser.Languages;
+            user.About = updatedUser.About;
             _context.Users.Update(user);
             await _context.SaveChangesAsync();
 

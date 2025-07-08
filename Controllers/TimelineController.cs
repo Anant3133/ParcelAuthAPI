@@ -45,7 +45,8 @@ namespace ParcelAuthAPI.Controllers
                     parcel.RecipientName,
                     parcel.DeliveryAddress,
                     parcel.Status,
-                    parcel.CreatedAt
+                    parcel.CreatedAt,
+                    parcel.SenderAddress
                 },
                 StatusLogs = statusLogs,
                 Handovers = handovers

@@ -146,6 +146,7 @@ namespace ParcelAuthAPI.Controllers
                     p.ParcelCategory,      // new
                     p.Weight,              // new
                     p.Status,
+                    p.CreatedAt,
                     p.CurrentLocation
                 })
                 .ToList();

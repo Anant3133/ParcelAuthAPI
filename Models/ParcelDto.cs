@@ -7,5 +7,6 @@ namespace ParcelAuthAPI.Models
         public string SenderAddress { get; set; } = string.Empty;
         public string ParcelCategory { get; set; } = string.Empty;  // e.g. "Fragile", "Heavy", "Standard"
         public decimal Weight { get; set; }
+        public DateTime CreatedAt { get; set; }
     }
 }
