@@ -14,4 +14,6 @@ public class User
     public string Location { get; set; } = string.Empty;
     public string Languages { get; set; } = string.Empty;
     public string About { get; set; } = string.Empty;
+    public string? ResetToken { get; set; }
+    public DateTime? ResetTokenExpiry { get; set; }
 }
